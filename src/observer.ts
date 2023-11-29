@@ -14,8 +14,7 @@ export function propertyChanged(self: any, name: PropertyKey, value: unknown) {
   let cls = self.constructor as ObservedPropertiesClass
 
   if (cls.observedPropertiesCallbacks)
-    for (let method of cls.observedPropertiesCallbacks.get(name))
-      registerPromise(self[method]?.call?.(self, value))
+    for (let method of cls.observedPropertiesCallbacks.get(name)) registerPromise(self[method]?.call?.(self, value))
 }
 
 function addObservedProperty(prototype: any, name: PropertyKey) {
@@ -45,23 +44,32 @@ function addObservedPropertyCallback(prototype: any, name: PropertyKey, callback
     .push(callback)
 }
 
-type Keys<T extends unknown[]> = T extends [infer K]
-  ? K
-  : T extends [infer K, ...infer R]
-  ? K | Keys<R>
-  : string
+type Keys<T extends unknown[]> = T extends [infer K] ? K : T extends [infer K, ...infer R] ? K | Keys<R> : string
 
 export const observe =
   <P extends PropertyKey[]>(...properties: P) =>
-  <T, K extends PropertyKey>(
-    prototype: K extends keyof T ? T & { [key in Keys<P>]?: unknown } : T,
-    method: K
-  ) => {
+  <T, K extends PropertyKey>(prototype: K extends keyof T ? T & { [key in Keys<P>]?: unknown } : T, method: K) => {
+    if (properties.length == 0) properties = guessProperties(prototype, method) as P
     for (let property of properties) {
       addObservedProperty(prototype, property)
       addObservedPropertyCallback(prototype, property, method)
     }
   }
+
+function guessProperties(prototype: any, method: PropertyKey) {
+  let properties: PropertyKey[] = []
+  let proxy = new Proxy(
+    {},
+    {
+      get(_, property) {
+        properties.push(property)
+        return ''
+      },
+    }
+  )
+  Object.getOwnPropertyDescriptor(prototype, method)?.get?.call(proxy)
+  return properties
+}
 
 export const compute = <T = any>(apply: (params: T) => unknown) => {
   let properties =
@@ -70,11 +78,7 @@ export const compute = <T = any>(apply: (params: T) => unknown) => {
       .match(/\(\{([^}]+)\}\)/)?.[1]
       .split(', ') || []
 
-  return <K extends PropertyKey>(
-    prototype: T,
-    property: K,
-    descriptor?: PropertyDescriptor
-  ): any => {
+  return <K extends PropertyKey>(prototype: T, property: K, descriptor?: PropertyDescriptor): any => {
     let symbol = Symbol(`${compute.name}-${properties}->${property.toString()}`)
     Object.defineProperty(prototype, symbol, {
       value() {
@@ -119,11 +123,7 @@ export const observed = <T extends Element, K extends keyof T>(
 // Based on https://github.com/saviski/ski-mixins/blob/master/src/in/css-properties.ts
 export const observeNumericCSSVariable =
   (...properties: `--${string}`[]) =>
-  (
-    prototype: HTMLElement,
-    _property: PropertyKey,
-    descriptor: TypedPropertyDescriptor<(...args: number[]) => any>
-  ) => {
+  (prototype: HTMLElement, _property: PropertyKey, descriptor: TypedPropertyDescriptor<(...args: number[]) => any>) => {
     onConnected(prototype, element => {
       let sensor = document.createElement('ins')
       sensor.toggleAttribute('numeric-css-property-sensor', true)
@@ -140,8 +140,7 @@ export const observeNumericCSSVariable =
       const cssVarUpdated = () => {
         const computedStyle = getComputedStyle(sensor)
         let values = properties.map(property => computedStyle.getPropertyValue(property))
-        if (values.every(value => value !== ''))
-          descriptor.value?.call(element, ...values.map(Number))
+        if (values.every(value => value !== '')) descriptor.value?.call(element, ...values.map(Number))
       }
 
       sensor.ontransitionrun = cssVarUpdated

@@ -2,31 +2,13 @@
 import { registerPromise } from './async.js'
 import { boolAttr, cssvar, listAttr, numsAttr, textAttr, unitAttr } from './attributes.js'
 import { Decorator } from './decorator.js'
-import { defineElement, element, elements, ElementType, getElementProperty } from './elements.js'
-import {
-  detail,
-  emit,
-  event as eventListener,
-  matches,
-  on,
-  onConnectedCallback,
-  preventDefault,
-  stopPropagation,
-} from './events.js'
+import { ElementType, defineElement, element, elements, getElementProperty } from './elements.js'
+import { detail, emit, event as eventListener, matches, on, onConnectedCallback, preventDefault, stopPropagation } from './events.js'
 import { content } from './inject-document.js'
 import { compute, observe, observeNumericCSSVariable } from './observer.js'
 import { prop, upgradeProperties } from './properties.js'
 import { checkprevious, debounce } from './run.js'
-import {
-  onslotchange,
-  runIfEmptySlot,
-  slotget,
-  slotlistview,
-  sloton,
-  slotted,
-  slottedlist,
-  slotview,
-} from './slots.js'
+import { onslotchange, runIfEmptySlot, slotget, slotlistview, sloton, slotted, slottedlist, slotview } from './slots.js'
 import { observeElementProperty } from './sync.js'
 import {
   asyncToggle,
@@ -37,8 +19,10 @@ import {
   runIfUnsetAttr,
   setAttribute,
   style,
+  text,
   toggleClass,
   toggleClasses,
+  togglePresence,
   view,
 } from './view.js'
 
@@ -66,7 +50,7 @@ export const get = {
 
 export const set = {
   view,
-  text: (query: string) => view(query, 'textContent'),
+  text,
   property: view,
   attr: view,
   properties: view,
@@ -86,6 +70,7 @@ export const list = {
 export const toggle = {
   class: toggleClass,
   classes: toggleClasses,
+  presence: togglePresence,
 }
 
 export const run = {
@@ -147,6 +132,7 @@ export const def = {
   computed: compute,
   cssv: cssvar,
   element: defineElement,
+  view,
 }
 
 export const event = {
@@ -197,20 +183,11 @@ const defaultSlot = {
   view: slotview.bind(window, ''),
   text: slotview('', 'text', 'textContent'),
   populate: slotlistview.bind(window, '') as {
-    <S extends string>(tagName: S, common?: Partial<ElementType<S>>): Decorator<
-      HTMLElement,
-      Iterable<Partial<ElementType<S>>>
-    >
+    <S extends string>(tagName: S, common?: Partial<ElementType<S>>): Decorator<HTMLElement, Iterable<Partial<ElementType<S>>>>
 
-    <E extends HTMLElement>(elementType: new () => E, common?: Partial<E>): Decorator<
-      HTMLElement,
-      Iterable<Partial<E>>
-    >
+    <E extends HTMLElement>(elementType: new () => E, common?: Partial<E>): Decorator<HTMLElement, Iterable<Partial<E>>>
 
-    <E extends HTMLElement, P = Partial<E>>(
-      factory: (props: P) => E,
-      common?: Partial<E>
-    ): Decorator<HTMLElement, Iterable<P>>
+    <E extends HTMLElement, P = Partial<E>>(factory: (props: P) => E, common?: Partial<E>): Decorator<HTMLElement, Iterable<P>>
     ////
   },
   on: sloton.bind(window, ''),
@@ -272,30 +249,21 @@ export const host = {
   view: view.bind(window, (host: HTMLElement) => host) as {
     <E extends HTMLElement = any>(): Decorator<HTMLElement, Partial<E>>
 
-    <E extends HTMLElement = any, P extends keyof E = any>(
-      property: P,
-      format?: (value: any) => E[P]
-    ): Decorator<HTMLElement, E[P]>
+    <E extends HTMLElement = any, P extends keyof E = any>(property: P, format?: (value: any) => E[P]): Decorator<HTMLElement, E[P]>
 
-    <E extends HTMLElement>(property: keyof E, format?: (value: any) => unknown): Decorator<
-      HTMLElement,
-      unknown
-    >
+    <E extends HTMLElement>(property: keyof E, format?: (value: any) => unknown): Decorator<HTMLElement, unknown>
     ////
   },
   // @ts-ignore
   populate: populate.bind(window, host => host) as {
-    <S extends string>(tagName: S, common?: Partial<ElementType<S>>): Decorator<
+    <S extends string>(tagName: S, init_prop?: Partial<ElementType<S>> | keyof ElementType<S>): Decorator<
       HTMLElement,
       Iterable<Partial<ElementType<S>>>
     >
 
-    <E extends HTMLElement>(elementType: new () => E, common?: Partial<E>): Decorator<
-      HTMLElement,
-      Iterable<Partial<E>>
-    >
+    <E extends HTMLElement>(elementType: new () => E, init_prop?: Partial<E> | keyof E): Decorator<HTMLElement, Iterable<Partial<E>>>
 
-    <E extends HTMLElement>(factory: (props: Partial<E>) => E, common?: Partial<E>): Decorator<
+    <E extends HTMLElement>(factory: (props: Partial<E>) => E, init_prop?: Partial<E> | keyof E): Decorator<
       HTMLElement,
       Iterable<Partial<E>>
     >
@@ -312,3 +280,5 @@ export const root = {
 export const selector = (query: string) => ({
   test: null,
 })
+
+export { bind } from './bind.js'

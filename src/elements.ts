@@ -46,15 +46,12 @@ function findAll(parent: ParentNode, query: string): ParentNode[] {
     // TODO: find a better name for light-host (host element that is not inside any shadow root)
     case ':light-host': {
       let root: Node
-      while (((root = parent.getRootNode()), root instanceof ShadowRoot))
-        parent = root.host as ParentNode
+      while (((root = parent.getRootNode()), root instanceof ShadowRoot)) parent = root.host as ParentNode
       return [parent]
     }
 
     default: {
-      let target = query.startsWith(':host')
-        ? parent
-        : (parent instanceof HTMLElement && parent.shadowRoot) || parent
+      let target = query.startsWith(':host') ? parent : (parent instanceof HTMLElement && parent.shadowRoot) || parent
 
       let scoped = query.replace(':host', ':scope')
       return Array.from<any>(target.querySelectorAll(scoped))
@@ -75,10 +72,7 @@ export function allElements(selector: string | Element | Function) {
       let element = selector(self)
       if (element) return [element]
     } else {
-      let result = multipleQuery<Element>(
-        self as ParentNode,
-        ...selector.split(',').map(s => s.trim())
-      )
+      let result = multipleQuery<Element>(self as ParentNode, ...selector.split(',').map(s => s.trim()))
       return result
     }
   }
@@ -92,12 +86,7 @@ export interface CustomHTMLElement extends HTMLElement {
   connectedCallback?(): void
   disconnectedCallback?(): void
   adoptedCallback?(): void
-  attributeChangedCallback?(
-    name: string,
-    old: string | null,
-    value: string | null,
-    namespace?: string | null
-  ): void
+  attributeChangedCallback?(name: string, old: string | null, value: string | null, namespace?: string | null): void
 }
 
 export interface CustomHTMLElementConstructor {
@@ -106,10 +95,7 @@ export interface CustomHTMLElementConstructor {
 
 export const element =
   <S extends string>(query: S) =>
-  <T, K>(
-    _prototype: K extends keyof T ? T & Partial<Record<K, ElementType<S>>> : T,
-    _property: K
-  ): any => ({
+  <T, K>(_prototype: K extends keyof T ? T & Partial<Record<K, ElementType<S>>> : T, _property: K): any => ({
     get(this: Element) {
       return (this.shadowRoot || this).querySelector<any>(query) || undefined
     },
@@ -136,10 +122,7 @@ export const elements =
   })
 
 export const bind =
-  <S extends string, E extends ElementType<S>, P extends keyof E>(
-    query: S,
-    property: P = <P>'value'
-  ) =>
+  <S extends string, E extends ElementType<S>, P extends keyof E>(query: S, property: P = <P>'value') =>
   <T, K>(_prototype: K extends keyof T ? T & Partial<Record<K, E[P]>> : T, _property: K): any => ({
     get(this: Element) {
       const element = (this.shadowRoot || this).querySelector<any>(query) || undefined
@@ -147,8 +130,7 @@ export const bind =
     },
 
     set(this: Element, value: unknown) {
-      for (let element of (this.shadowRoot || this).querySelectorAll<any>(query))
-        element[property] = value
+      for (let element of (this.shadowRoot || this).querySelectorAll<any>(query)) element[property] = value
     },
 
     enumerable: true,
@@ -157,11 +139,7 @@ export const bind =
 
 export const getElementProperty =
   <S extends string, E extends ElementType<S>, P extends keyof E>(query: S, property: P) =>
-  <T, K>(
-    _prototype: K extends keyof T ? T & Partial<Record<K, E[P]>> : T,
-    _property: K,
-    descriptor?: PropertyDescriptor
-  ): any => ({
+  <T, K>(_prototype: K extends keyof T ? T & Partial<Record<K, E[P]>> : T, _property: K, descriptor?: PropertyDescriptor): any => ({
     ...descriptor,
 
     get(this: Element) {
@@ -172,19 +150,22 @@ export const getElementProperty =
     configurable: true,
   })
 
-export type ElementProperties<T extends HTMLElement> = Partial<HTMLElement> &
-  Omit<T, keyof HTMLElement>
+export type ElementProperties<T extends HTMLElement> = Partial<HTMLElement> & Omit<T, keyof HTMLElement>
 
 export const elementDecorator = <V>({
   elements,
   apply,
   async,
   get,
+  init,
+  decorate,
 }: {
   elements: string | ((self: HTMLElement) => Iterable<HTMLElement>)
   apply?: (element: HTMLElement, value: V) => unknown
   async?: (element: HTMLElement, promise: Promise<V>) => unknown | Promise<unknown>
   get?: (element: HTMLElement, property: PropertyKey) => V
+  init?: (self: HTMLElement, property: string | symbol, element: HTMLElement) => void
+  decorate?: (prototype: HTMLElement, property: string | symbol, descriptor?: PropertyDescriptor) => any
 }) => {
   let list = typeof elements == 'string' ? allElements(elements) : elements
 
@@ -207,9 +188,16 @@ export const elementDecorator = <V>({
         let [element] = list(self)
         return element && get(element, property)
       }),
+
+    init:
+      init &&
+      ((self, property) => {
+        for (let element of list(self)) init(self, property, element)
+      }),
+
+    decorate,
   })
 }
 
-export const defineElement =
-  (tagname: `${string}-${string}`) => (constructor: CustomElementConstructor) =>
-    customElements.define(tagname, constructor)
+export const defineElement = (tagname: `${string}-${string}`) => (constructor: CustomElementConstructor) =>
+  customElements.define(tagname, constructor)
